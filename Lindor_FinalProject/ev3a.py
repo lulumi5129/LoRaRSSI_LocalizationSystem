@@ -37,7 +37,6 @@ class EV3_Config:
              'generationCount': (int,True),
              'randomSeed': (int,True),
              'crossoverFraction': (float,True),
-             'poolEvaluator': (bool,True),
              'loopCount': (int,True)}
      
     #constructor
