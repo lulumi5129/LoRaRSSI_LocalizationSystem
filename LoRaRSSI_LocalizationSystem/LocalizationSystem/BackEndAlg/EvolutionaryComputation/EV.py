@@ -233,7 +233,7 @@ class EV3():
             textbox = ax.text(x=0.05, y=0.95, s=textstr, transform=ax.transAxes, fontsize=10,bbox=props)
             textbox.set_horizontalalignment("left")
             textbox.set_verticalalignment("top")
-            #fig.savefig('C:\\Users\\Lulumi5129\\Desktop\\' + str(target.NodeID) + '\\Gen_' + str(int((gen+1) + (loopCount*totalGen))) + '.png')
+            #fig.savefig('C:\\Users\\Lulumi5129\\Desktop\\2D_target\\' + str(target.ID+1) + '\\Gen_' + str(int((gen+1) + (loopCount*totalGen))) + '.png')
             ax.grid(True)
             plt.pause(0.05)
             plt.draw()
@@ -280,7 +280,7 @@ class EV3():
             textbox.set_horizontalalignment("left")
             textbox.set_verticalalignment("top")
         
-            #fig.savefig('C:\\Users\\Lulumi5129\\Desktop\\' + str(target.NodeID) + '\\Gen_' + str(int((gen+1) + (loopCount*totalGen))) + '.png')
+            #fig.savefig('C:\\Users\\Lulumi5129\\Desktop\\3D_target\\' + str(target.ID+1) + '\\Gen_' + str(int((gen+1) + (loopCount*totalGen))) + '.png')
             ax.grid(True)
             plt.pause(0.05)
             plt.draw()

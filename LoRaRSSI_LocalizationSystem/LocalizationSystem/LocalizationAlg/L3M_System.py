@@ -121,19 +121,31 @@ class L3M_Sys():
         #create target node list
         targetNodeList = []
         for i in range(cls.targetNodeNum) :
-            if cls.L3M_Sys_Dimensions == '2D' :
-                targetNodeList.append(Node(x=cls.specifyTargetNodeValue[i][0], y=cls.specifyTargetNodeValue[i][1], dimensions='2D', headerName='Target', ID=i))
-            else :
-                targetNodeList.append(Node(x=cls.specifyTargetNodeValue[i][0], y=cls.specifyTargetNodeValue[i][1], z=cls.specifyTargetNodeValue[i][2], dimensions='3D', headerName='Target', ID=i))
-        
+            if cls.specifyTarget is True :
+                if cls.L3M_Sys_Dimensions == '2D' :
+                    targetNodeList.append(Node(x=cls.specifyTargetNodeValue[i][0], y=cls.specifyTargetNodeValue[i][1], dimensions='2D', headerName='Target', ID=i))
+                else :
+                    targetNodeList.append(Node(x=cls.specifyTargetNodeValue[i][0], y=cls.specifyTargetNodeValue[i][1], z=cls.specifyTargetNodeValue[i][2], dimensions='3D', headerName='Target', ID=i))
+            else:
+                if cls.L3M_Sys_Dimensions == '2D' :
+                    targetNodeList.append(Node(dimensions='2D', headerName='Target', ID=i))
+                else :
+                    targetNodeList.append(Node(dimensions='3D', headerName='Target', ID=i))
+            
         #create anchor node list
         anchorNodeList = []
         for i in range(cls.anchorNodeNum) :
-            if cls.L3M_Sys_Dimensions == '2D' :
-                anchorNodeList.append(Node(x=cls.specifyAnchorNodeValue[i][0], y=cls.specifyAnchorNodeValue[i][1], dimensions='2D', headerName='Anchor', ID=i))
+            if cls.specifyAnchor is True :
+                if cls.L3M_Sys_Dimensions == '2D' :
+                    anchorNodeList.append(Node(x=cls.specifyAnchorNodeValue[i][0], y=cls.specifyAnchorNodeValue[i][1], dimensions='2D', headerName='Anchor', ID=i))
+                else :
+                    anchorNodeList.append(Node(x=cls.specifyAnchorNodeValue[i][0], y=cls.specifyAnchorNodeValue[i][1], z=cls.specifyAnchorNodeValue[i][2], dimensions='3D', headerName='Anchor', ID=i))
             else :
-                anchorNodeList.append(Node(x=cls.specifyAnchorNodeValue[i][0], y=cls.specifyAnchorNodeValue[i][1], z=cls.specifyAnchorNodeValue[i][2], dimensions='3D', headerName='Anchor', ID=i))
-        
+                if cls.L3M_Sys_Dimensions == '2D' :
+                    anchorNodeList.append(Node(dimensions='2D', headerName='Anchor', ID=i))
+                else :
+                    anchorNodeList.append(Node(dimensions='3D', headerName='Anchor', ID=i))
+            
         #get RSSI and pseudo noise
         realRSSIDict = {}
         noiseDict = {}
