@@ -149,16 +149,21 @@ class L3M_Sys():
         #get RSSI and pseudo noise
         realRSSIDict = {}
         noiseDict = {}
+        channelDistanceDict = {}
         for target in targetNodeList :
             realRSSIList = []
             noiseList = []
+            channelDistanceList = []
             for anchor in anchorNodeList :
-                (RSSI, noise) = target.getChannelRSSI(anchor)
+                (channelDistance, noise) = target.getChannelDistance(anchor)
+                (RSSI, noise1) = target.getChannelRSSI(anchor)
                 realRSSIList.append(RSSI)
                 noiseList.append(noise)
+                channelDistanceList.append(channelDistance)
                 
             realRSSIDict[target.nodeName] = realRSSIList
             noiseDict[target.nodeName] = noiseList
+            channelDistanceDict[target.nodeName] = channelDistanceList
         
         #get estimate Coordinate
         L3M_CoordinateDict = {}
@@ -201,18 +206,18 @@ class L3M_Sys():
                 
             L3M_Comb_CoordinateDict[target.nodeName] = coordinateList
             
-        return (anchorNodeList, targetNodeList, realRSSIDict, noiseDict, L3M_CoordinateDict, anchorCombDict, L3M_Comb_CoordinateDict)
+        return (anchorNodeList, targetNodeList, realRSSIDict, channelDistanceDict, noiseDict, L3M_CoordinateDict, anchorCombDict, L3M_Comb_CoordinateDict)
         
     @classmethod
     def L3M_Alg(cls, anchorNodeList, realRSSIList, noiseList=None):
         #
-        #            |-2*x1 -2*y1 1 |                | 10**((2/10*n)*(Z0 + Z1 - noise)) - R1 |        | x |
-        #matrix A =  |-2*x2 -2*y2 1 |  matrix b =    | 10**((2/10*n)*(Z0 + Z2 - noise)) - R2 | theta =| y |
-        #            |  .     .   . |                |              .                        |        | R |
-        #            |-2*xn -2*yn 1 |                | 10**((2/10*n)*(Z0 + Zn - noise)) - Rn |
+        #            |-2*x1 -2*y1 1 |                | 10**((2/n)*(Z0 - Z1)) - R1 |        | x |
+        #matrix A =  |-2*x2 -2*y2 1 |  matrix b =    | 10**((2/n)*(Z0 - Z2)) - R2 | theta =| y |
+        #            |  .     .   . |                |           .                |        | R |
+        #            |-2*xn -2*yn 1 |                | 10**((2/n)*(Z0 - Zn)) - Rn |
         #
         #   Z0=PLog_distance_model_P_Zero, n=Log_distance_model_n
-        #   Zn=Pt(dBm)-Pr(dBm), and Pr is RSSI, Pt=Log_distance_model_Pt
+        #   Zn=Pt(dBm) + Pr(dBm), and Pr is RSSI, Pt=Log_distance_model_Pt
         #   Rn = estimate distance between anchor_i and target
         #   x and y is target estimate coordinate, R is target estimate distance
         #   theta = matrix A(pseudo inverse) * matrix b
@@ -240,8 +245,8 @@ class L3M_Sys():
             A_col.append(1)
                 
             #create matrix b
-            Zi = LogDistanceModel.transmitPower - RSSI
-            b_col=(10**((2/(10*LogDistanceModel.n))*(LogDistanceModel.zeroPoint + Zi - noise))) - Ri(anchor)
+            Zi = LogDistanceModel.transmitPower + RSSI
+            b_col=(10**((2/(10*LogDistanceModel.n))*(LogDistanceModel.zeroPoint - Zi - noise))) - Ri(anchor)
                 
             matrix_A.append(A_col)
             matrix_b.append([b_col])
@@ -262,18 +267,25 @@ class L3M_Sys():
     def printAnchorNode(cls, anchorNodeList):
         for anchor in anchorNodeList :
             print(anchor)
-            
+    
+    @classmethod
+    def printChannelDistance(cls, channelDistanceDict, noiseDict):
+        for key in channelDistanceDict :
+            print("Target Node \"%s\" :\npseudo distance between ---"%(key))
+            for index in range(len(channelDistanceDict[key])) :
+                print("\t --Anchor %d : %4.4f m \tnoise = %8.4f dBm"%(index+1, channelDistanceDict[key][index], noiseDict[key][index]) )
+    
     @classmethod
     def printRealRSSI(cls, realRSSIDict, noiseDict):
         for key in realRSSIDict :
             print("Target Node \"%s\" :\npseudo RSSI between ---"%(key))
             for index in range(len(realRSSIDict[key])) :
-                print("\t --Anchor %d : %8.4f dBm \tnoise = %8.4f dBm"%(index, realRSSIDict[key][index], noiseDict[key][index]) )
+                print("\t --Anchor %d : %8.4f dBm \tnoise = %8.4f dBm"%(index+1, realRSSIDict[key][index], noiseDict[key][index]) )
         
     @classmethod
     def printL3M_Coordinate(cls, L3M_CoordinateDict):
         for key in L3M_CoordinateDict :
-            print('Target Node \"%s\" :\nestimate coordinate' + str(L3M_CoordinateDict[key]))
+            print('Target Node \"%s\" :\nestimate coordinate'%(key) + str(L3M_CoordinateDict[key]))
             
     @classmethod
     def printL3M_Comb_Coordinate(cls, L3M_Comb_CoordinateDict, anchorCombDict):

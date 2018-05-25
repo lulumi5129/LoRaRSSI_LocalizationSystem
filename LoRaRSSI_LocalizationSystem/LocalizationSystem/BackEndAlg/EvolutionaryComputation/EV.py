@@ -105,11 +105,11 @@ class EV3():
         L3M_Config(L3MSysConfigFilePath)
         EV3_Config(EVConfigFilePath)
         
-        cls.ev3(dataList[0], dataList[1], dataList[2], dataList[3], dataList[4])
+        cls.ev3(dataList[0], dataList[1], dataList[2], dataList[3], dataList[4], dataList[5])
     
     #EV3 main
     @classmethod
-    def ev3(cls, anchorList, target, L3M_Node, L3M_Comb, anchorCombDict):
+    def ev3(cls, anchorList, target, L3M_Node, L3M_Comb, anchorCombDict, channelDistance):
         #start random number generators
         uniprng=Random()
         uniprng.seed(cls.randomSeed)
@@ -141,7 +141,8 @@ class EV3():
             population=Population(cls.populationSize)
         
             #print initial pop stats    
-            minNode = cls.printStats(population,0, target)
+            #cls.printStats(population,0, target)
+            minNode = cls.getminNode(population)
             if loop == 0 :
                 fig = plt.figure(figsize=(8,6), dpi=120)
                 if cls.dimensions == '2D' :
@@ -151,7 +152,7 @@ class EV3():
                 
             fig.suptitle(target.nodeName + " Localization System Loop" + str(loop+1))
     
-            cls.plotLocalizationSystem(fig, ax, population, 0, cls.generationCount, 0, L3M_Comb, anchorList, target, minNode, L3M_Node)
+            cls.plotLocalizationSystem(fig, ax, population, 0, cls.generationCount, 0, L3M_Comb, anchorList, target, minNode, L3M_Node, channelDistance)
         
             #evolution main loop
             for i in range(cls.generationCount):
@@ -175,8 +176,9 @@ class EV3():
                 population.truncateSelect(cls.populationSize)
         
                 #print population stats    
-                minNode = cls.printStats(population,i+1, target)
-                cls.plotLocalizationSystem(fig, ax, population, loop, cls.generationCount, i+1, L3M_Comb, anchorList, target, minNode, L3M_Node)
+                #cls.printStats(population,i+1, target)
+                minNode = cls.getminNode(population)
+                cls.plotLocalizationSystem(fig, ax, population, loop, cls.generationCount, i+1, L3M_Comb, anchorList, target, minNode, L3M_Node, channelDistance)
             
             L3M_Comb = cls.loopMethod(L3M_Comb, minNode, anchorCombDict, anchorList)
             ClusterCenter.coordinateCluster = L3M_Comb
@@ -186,7 +188,9 @@ class EV3():
         
     #Plot some useful coordinate to screen
     @classmethod
-    def plotLocalizationSystem(cls, fig, ax, pop, loopCount, totalGen, gen, L3M_Comb_List, anchorList, target, minNode, L3M_Node):
+    def plotLocalizationSystem(cls, fig, ax, pop, loopCount, totalGen, gen, L3M_Comb_List, anchorList, target, minNode, L3M_Node, channelDistance):
+        from itertools import cycle
+        cycol=cycle('bgrcmkyb')
         ax.clear()
         x_EV3=[]
         y_EV3=[]
@@ -212,6 +216,10 @@ class EV3():
             for anchor in anchorList :
                 x_anchor.append(anchor.x)
                 y_anchor.append(anchor.y)
+                
+            #plot anchor Circle
+            for anchor, distance in zip(anchorList, range(len(channelDistance))) :
+                ax.add_artist(plt.Circle(anchor.coordinate, channelDistance[distance], color=next(cycol), fill=False))
             
             # plot
             ax.scatter(x_anchor, y_anchor, c='b', s=100, marker='^', label='Anchor')
@@ -223,7 +231,7 @@ class EV3():
             legend.get_frame().set_facecolor('#00FFCC')
             ax.set_xlabel('X (m)')
             ax.set_ylabel('Y (m)')
-            textstr1 = str(target) + '\n'
+            textstr1 = str(target) + ', Gen:' + str(gen) + '\n'
             textstr2 = str(minNode) + '\n'
             textstr3 = 'distance between target and EV3 is %4.4f '%(minNode.getDistance(target)) + ' m\n'
             textstr4 = 'distance between target and L3M is %4.4f '%(L3M_Node.getDistance(target)) + ' m'
@@ -269,7 +277,7 @@ class EV3():
             ax.set_xlabel('X (m)')
             ax.set_ylabel('Y (m)')
             ax.set_zlabel('Z (m)')
-            textstr1 = str(target) + '\n'
+            textstr1 = str(target) + ', Gen:' + str(gen) + '\n'
             textstr2 = str(minNode) + '\n'
             textstr3 = 'distance between target and EV3 is %4.4f '%(minNode.getDistance(target)) + ' m\n'
             textstr4 = 'distance between target and L3M is %4.4f '%(L3M_Node.getDistance(target)) + ' m'
@@ -288,6 +296,21 @@ class EV3():
         else :
             raise Exception("plot error")
         
+    @classmethod
+    def getminNode(cls, pop):
+        avgval=0
+        minval=pop[0].fit 
+        minNode = pop[0]
+        mutRate=pop[0].mutRate
+        for ind in pop:
+            avgval+=ind.fit
+            if ind.fit > minval:
+                minval=ind.fit
+                mutRate=ind.mutRate
+                minNode=ind
+                
+        return minNode
+    
     @classmethod
     #Print some useful stats to screen
     def printStats(cls, pop, gen, _target):
@@ -311,8 +334,6 @@ class EV3():
         print('EC estimate Coordinate', minNode)
         print('distance between EC Node and real node', minNode.getDistance(_target), end='')
         print(' m')
-    
-        return minNode
     
     @classmethod
     def loopMethod_1(cls, estimateNodeList, minNode, anchorCombDict, anchorList):
@@ -361,7 +382,7 @@ class EV3():
                 if estimateNodeList[j].getDistance(minNode) < estimateNodeList[j+1].getDistance(minNode) :
                     estimateNodeList[j] , estimateNodeList[j+1] = estimateNodeList[j+1],estimateNodeList[j]
         
-        dirtyNode = estimateNodeList[0:8]
+        dirtyNode = estimateNodeList[0:7]
         anchorCount={}
         for anchor in anchorList :
             anchorCount[anchor.nodeName] = 0

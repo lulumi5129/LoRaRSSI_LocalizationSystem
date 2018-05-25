@@ -258,6 +258,9 @@ class Node():
         
     def getChannelDistance(self, other):
         if self and other is not None : return node_Method.getChannelDistance(self, other)
+        
+    def getChannelDistance_noNoise(self, other):
+        if self and other is not None : return node_Method.getChannelDistance_noNoise(self, other)
     
 class node_Method():
     
@@ -305,6 +308,10 @@ class node_Method():
     @classmethod
     def getChannelDistance(cls, selfNode, otherNode):
         return cls.channelModel.getChannelDistance(selfNode, otherNode)
+    
+    @classmethod
+    def getChannelDistance_noNoise(cls, selfNode, otherNode):
+        return cls.channelModel.getChannelDistance_noNoise(selfNode, otherNode)
         
 class LogDistanceModel():
     
@@ -319,8 +326,8 @@ class LogDistanceModel():
         distance = selfNode.getDistance(otherNode)
         
         # Calculation receive single strength
-        # RSSI= p0 - 10nlog(d) + pt
-        realRSSI=cls.zeroPoint-10*cls.n*math.log10(distance) + cls.transmitPower
+        # RSSI= p0 - 10nlog(d) - pt - noise
+        realRSSI=cls.zeroPoint - 10*cls.n*math.log10(distance) - cls.transmitPower
         noise = channelNoise.noiseMethod(selfNode, otherNode)
         
         return realRSSI, noise
@@ -331,10 +338,21 @@ class LogDistanceModel():
         (realRSSI, noise) = cls.getChannelRSSI(selfNode, otherNode)
         
         # Calculation distance
-        # d = 10**((1/10n)*(noise+pt+p0-RSSI+noise))
-        distance = 10**((1/(10*cls.n)) * (cls.transmitPower + cls.zeroPoint - realRSSI + noise))
+        # d = 10**((1/10*n)*(P0 - Pr - Pt - noise))
+        distance = 10**((1/(10*cls.n)) * (cls.zeroPoint - cls.transmitPower - realRSSI - noise))
         
         return distance, noise
+    
+    @classmethod
+    def getChannelDistance_noNoise(cls, selfNode, otherNode):
+        # get Real RSSI and noise
+        (realRSSI, noise) = cls.getChannelRSSI(selfNode, otherNode)
+        
+        # Calculation distance
+        # d = 10**((1/10*n)*(P0 - Pr - Pt - noise))
+        distance = 10**((1/(10*cls.n)) * (cls.zeroPoint - cls.transmitPower - realRSSI))
+        
+        return distance
     
 class channelNoise():
     

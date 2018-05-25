@@ -1,9 +1,7 @@
 '''
-Created on 2018/5/21
+Created on 2018/5/26
 
 @author: Lulumi5129
-
- Flow : L3M -> EV
 '''
 
 import optparse
@@ -14,9 +12,9 @@ from LocalizationSystem.Node.node import node_Config
 from LocalizationSystem.BackEndAlg.EvolutionaryComputation.EV import EV3, EV3_Config
 
 def main(argv=None):
-    nodeConfigFilePath = './config/main/node_config.cfg'
-    L3MSysConfigFilePath = './config/main/L3M_System_config_2D.cfg'
-    EVConfigFilePath = './config/main/EV_config.cfg'
+    nodeConfigFilePath = './config/main_1/node_config.cfg'
+    L3MSysConfigFilePath = './config/main_1/L3M_System_config_2D.cfg'
+    EVConfigFilePath = './config/main_1/EV_config.cfg'
     if argv is None:
         argv = sys.argv
         
