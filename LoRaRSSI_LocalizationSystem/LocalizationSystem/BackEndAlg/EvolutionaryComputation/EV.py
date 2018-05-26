@@ -12,6 +12,7 @@ from .Population import Population
 from .Individual import Individual
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+import numpy as np
 
 #EV3 Config class 
 class EV3_Config:
@@ -98,18 +99,20 @@ class EV3():
     
     #EV3 multi process run main
     @classmethod
-    def ev3_multiprocess(cls, EVConfigFilePath, L3MSysConfigFilePath, nodeConfigFilePath, dataList):
+    def ev3_multiprocess(cls, settingPath, LS_Obj, target):
         from LocalizationSystem.LocalizationAlg.L3M_System import L3M_Config
         from LocalizationSystem.Node.node import node_Config
-        node_Config(nodeConfigFilePath)
-        L3M_Config(L3MSysConfigFilePath)
-        EV3_Config(EVConfigFilePath)
+        from LocalizationSystem.LocalizationAlg.Localization import Localization_Config
+        EV3_Config(settingPath[0])
+        L3M_Config(settingPath[1])
+        Localization_Config(settingPath[2])
+        node_Config(settingPath[3])
         
-        cls.ev3(dataList[0], dataList[1], dataList[2], dataList[3], dataList[4], dataList[5])
+        cls.ev3(LS_Obj, target)
     
     #EV3 main
     @classmethod
-    def ev3(cls, anchorList, target, L3M_Node, L3M_Comb, anchorCombDict, channelDistance):
+    def ev3(cls, LS_Obj, target):
         #start random number generators
         uniprng=Random()
         uniprng.seed(cls.randomSeed)
@@ -135,7 +138,7 @@ class EV3():
             Population.individualDimensions=cls.dimensions
         
         for loop in range(cls.loopCount) :
-            ClusterCenter.coordinateCluster=L3M_Comb
+            ClusterCenter.coordinateCluster=LS_Obj.L3M_Comb_CoordinateDict[target.nodeName]
             
             #create initial Population (random initialization)
             population=Population(cls.populationSize)
@@ -152,7 +155,7 @@ class EV3():
                 
             fig.suptitle(target.nodeName + " Localization System Loop" + str(loop+1))
     
-            cls.plotLocalizationSystem(fig, ax, population, 0, cls.generationCount, 0, L3M_Comb, anchorList, target, minNode, L3M_Node, channelDistance)
+            cls.plotLocalizationSystem(fig, ax, population, 0, 0, LS_Obj, target, minNode)
         
             #evolution main loop
             for i in range(cls.generationCount):
@@ -178,98 +181,65 @@ class EV3():
                 #print population stats    
                 #cls.printStats(population,i+1, target)
                 minNode = cls.getminNode(population)
-                cls.plotLocalizationSystem(fig, ax, population, loop, cls.generationCount, i+1, L3M_Comb, anchorList, target, minNode, L3M_Node, channelDistance)
+                cls.plotLocalizationSystem(fig, ax, population, loop, i+1, LS_Obj, target, minNode)
             
-            L3M_Comb = cls.loopMethod(L3M_Comb, minNode, anchorCombDict, anchorList)
-            ClusterCenter.coordinateCluster = L3M_Comb
+            LS_Obj.L3M_Comb_CoordinateDict[target.nodeName] = cls.loopMethod(LS_Obj, minNode, target)
             del population
         
         plt.show()
         
     #Plot some useful coordinate to screen
     @classmethod
-    def plotLocalizationSystem(cls, fig, ax, pop, loopCount, totalGen, gen, L3M_Comb_List, anchorList, target, minNode, L3M_Node, channelDistance):
+    def plotLocalizationSystem(cls, fig, ax, pop, loop, gen, L3M_Obj, target, minNode):
         from itertools import cycle
         cycol=cycle('bgrcmkyb')
         ax.clear()
-        x_EV3=[]
-        y_EV3=[]
+        x_EV3 = pop.getPopulationXList()
+        y_EV3 = pop.getPopulationYList()
         z_EV3=[]
-        x_L3M_Comb=[]
-        y_L3M_Comb=[]
+        x_L3M_Comb = L3M_Obj.getL3M_Comb_XList(target)
+        y_L3M_Comb = L3M_Obj.getL3M_Comb_YList(target)
         z_L3M_Comb=[]
-        x_anchor=[]
-        y_anchor=[]
+        x_anchor = L3M_Obj.getAnchorXList()
+        y_anchor = L3M_Obj.getAnchorYList()
         z_anchor=[]
     
-        if len(target) == 2 :
-            # get EV3 estimate coordinate
-            x_EV3 = pop.getPopulationXList()
-            y_EV3 = pop.getPopulationYList()
-            
-            # get L3M_Comb estimate coordinate
-            for L3M_Comb in L3M_Comb_List :
-                x_L3M_Comb.append(L3M_Comb.x)
-                y_L3M_Comb.append(L3M_Comb.y)
-    
-            # get anchor coordinate
-            for anchor in anchorList :
-                x_anchor.append(anchor.x)
-                y_anchor.append(anchor.y)
-                
+        if L3M_Obj.Localization_Dimensions == '2D' :
             #plot anchor Circle
-            for anchor, distance in zip(anchorList, range(len(channelDistance))) :
-                ax.add_artist(plt.Circle(anchor.coordinate, channelDistance[distance], color=next(cycol), fill=False))
+            for anchor, distance in zip(L3M_Obj.anchorList, L3M_Obj.distanceDict[target.nodeName]) :
+                ax.add_artist(plt.Circle(anchor.coordinate, distance, color=next(cycol), fill=False))
             
             # plot
             ax.scatter(x_anchor, y_anchor, c='b', s=100, marker='^', label='Anchor')
             ax.scatter(target.x, target.y, c='r', s=100, marker='o', label=target.nodeName)
-            ax.scatter(L3M_Node.x, L3M_Node.y, s=80, c='y', marker='o', label='L3M')
+            ax.scatter(L3M_Obj.L3M_CoordinateDict[target.nodeName].x, L3M_Obj.L3M_CoordinateDict[target.nodeName].y, s=80, c='y', marker='o', label='L3M')
             ax.scatter(x_L3M_Comb, y_L3M_Comb, c='g', marker='o', label='L3M_Comb')
             ax.scatter(x_EV3, y_EV3, c='k', marker='*', label='EV3')
-            legend = ax.legend(loc='center right', fontsize='x-small', shadow=True)
-            legend.get_frame().set_facecolor('#00FFCC')
+            
             ax.set_xlabel('X (m)')
             ax.set_ylabel('Y (m)')
-            textstr1 = str(target) + ', Gen:' + str(gen) + '\n'
-            textstr2 = str(minNode) + '\n'
-            textstr3 = 'distance between target and EV3 is %4.4f '%(minNode.getDistance(target)) + ' m\n'
-            textstr4 = 'distance between target and L3M is %4.4f '%(L3M_Node.getDistance(target)) + ' m'
-            textstr = textstr1 + textstr2 + textstr3 + textstr4
-            textstr = textstr.replace('\t', ' ')
-            props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
-            textbox = ax.text(x=0.05, y=0.95, s=textstr, transform=ax.transAxes, fontsize=10,bbox=props)
-            textbox.set_horizontalalignment("left")
-            textbox.set_verticalalignment("top")
-            #fig.savefig('C:\\Users\\Lulumi5129\\Desktop\\2D_target\\' + str(target.ID+1) + '\\Gen_' + str(int((gen+1) + (loopCount*totalGen))) + '.png')
-            ax.grid(True)
-            plt.pause(0.05)
-            plt.draw()
+            
+            #fig.savefig('C:\\Users\\Lulumi5129\\Desktop\\2D_target\\' + str(target.ID+1) + '\\Gen_' + str(int((gen+1) + (loop*cls.generationCount))) + '.png')
         
         elif len(target.coordinate) == 3 :
-            #plt.figure().add_subplot(111, projection='3d')
-        
-            # get EV3 estimate coordinate
-            x_EV3 = pop.getPopulationXList()
-            y_EV3 = pop.getPopulationYList()
+            #plot anchor Circle
+            for anchor, distance in zip(L3M_Obj.anchorList, L3M_Obj.distanceDict[target.nodeName]) :
+                center = anchor.coordinate
+                radius = distance
+                u = np.linspace(0, 2 * np.pi, 100)
+                v = np.linspace(0, np.pi, 100)
+                x = radius * np.outer(np.cos(u), np.sin(v)) + center[0]
+                y = radius * np.outer(np.sin(u), np.sin(v)) + center[1]
+                z = radius * np.outer(np.ones(np.size(u)), np.cos(v)) + center[2]
+                ax.plot_wireframe(x, y, z, color=next(cycol), rstride=10, cstride=10)
+            
             z_EV3 = pop.getPopulationZList()
-            
-            # get L3M_Comb estimate coordinate
-            for L3M_Comb in L3M_Comb_List :
-                x_L3M_Comb.append(L3M_Comb.x)
-                y_L3M_Comb.append(L3M_Comb.y)
-                z_L3M_Comb.append(L3M_Comb.z)
-    
-            # get anchor coordinate
-            for anchor in anchorList :
-                x_anchor.append(anchor.x)
-                y_anchor.append(anchor.y)
-                z_anchor.append(anchor.z)
-            
+            z_L3M_Comb = L3M_Obj.getL3M_Comb_ZList(target)
+            z_anchor = L3M_Obj.getAnchorZList()
             # plot
             ax.scatter(x_anchor, y_anchor, z_anchor, c='b', s=100, marker='^', label='Anchor')
             ax.scatter(target.x, target.y, target.z, c='r', s=100, marker='o', label=target.nodeName)
-            ax.scatter(L3M_Node.x, L3M_Node.y, L3M_Node.z, s=80, c='y', marker='o', label='L3M')
+            ax.scatter(L3M_Obj.L3M_CoordinateDict[target.nodeName].x, L3M_Obj.L3M_CoordinateDict[target.nodeName].y, L3M_Obj.L3M_CoordinateDict[target.nodeName].z, s=80, c='y', marker='o', label='L3M')
             ax.scatter(x_L3M_Comb, y_L3M_Comb, z_L3M_Comb, c='g', marker='o', label='L3M_Comb')
             ax.scatter(x_EV3, y_EV3, z_EV3, c='k', marker='*', label='EV3')
             legend = ax.legend(loc='center right', fontsize='x-small', shadow=True)
@@ -277,24 +247,29 @@ class EV3():
             ax.set_xlabel('X (m)')
             ax.set_ylabel('Y (m)')
             ax.set_zlabel('Z (m)')
-            textstr1 = str(target) + ', Gen:' + str(gen) + '\n'
-            textstr2 = str(minNode) + '\n'
-            textstr3 = 'distance between target and EV3 is %4.4f '%(minNode.getDistance(target)) + ' m\n'
-            textstr4 = 'distance between target and L3M is %4.4f '%(L3M_Node.getDistance(target)) + ' m'
-            textstr = textstr1 + textstr2 + textstr3 + textstr4
-            textstr = textstr.replace('\t', ' ')
-            props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
-            textbox = ax.text(x=0.05, y=0.95, z=0.05, s=textstr, transform=ax.transAxes, fontsize=10,bbox=props)
-            textbox.set_horizontalalignment("left")
-            textbox.set_verticalalignment("top")
-        
-            #fig.savefig('C:\\Users\\Lulumi5129\\Desktop\\3D_target\\' + str(target.ID+1) + '\\Gen_' + str(int((gen+1) + (loopCount*totalGen))) + '.png')
-            ax.grid(True)
-            plt.pause(0.05)
-            plt.draw()
+            #fig.savefig('C:\\Users\\Lulumi5129\\Desktop\\3D_target\\' + str(target.ID+1) + '\\Gen_' + str(int((gen+1) + (loop*cls.generationCount))) + '.png')
         
         else :
             raise Exception("plot error")
+        
+        legend = ax.legend(loc='center right', fontsize='x-small', shadow=True)
+        legend.get_frame().set_facecolor('#00FFCC')
+        textstr1 = str(target) + ', Gen:' + str(gen) + '\n'
+        textstr2 = str(minNode) + '\n'
+        textstr3 = 'distance between target and EV3 is %4.4f '%(minNode.getDistance(target)) + ' m\n'
+        textstr4 = 'distance between target and L3M is %4.4f '%(L3M_Obj.L3M_CoordinateDict[target.nodeName].getDistance(target)) + ' m'
+        textstr = textstr1 + textstr2 + textstr3 + textstr4
+        textstr = textstr.replace('\t', ' ')
+        props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+        if L3M_Obj.Localization_Dimensions == '2D' :
+            textbox = ax.text(x=0.05, y=0.95, s=textstr, transform=ax.transAxes, fontsize=10,bbox=props)
+        else :
+            textbox = ax.text(x=0.05, y=0.95, z=0.95, s=textstr, transform=ax.transAxes, fontsize=10,bbox=props)
+        textbox.set_horizontalalignment("left")
+        textbox.set_verticalalignment("top")
+        ax.grid(True)
+        plt.pause(0.05)
+        plt.draw()
         
     @classmethod
     def getminNode(cls, pop):
@@ -311,8 +286,8 @@ class EV3():
                 
         return minNode
     
-    @classmethod
     #Print some useful stats to screen
+    @classmethod
     def printStats(cls, pop, gen, _target):
         print('Generation:',gen)
         avgval=0
@@ -336,7 +311,8 @@ class EV3():
         print(' m')
     
     @classmethod
-    def loopMethod_1(cls, estimateNodeList, minNode, anchorCombDict, anchorList):
+    def loopMethod_1(cls, LS_Obj, minNode, target):
+        estimateNodeList = LS_Obj.L3M_Comb_CoordinateDict[target.nodeName]
         for i in range(len(estimateNodeList)-1) :
             for j in range(len(estimateNodeList)-i-1) :
                 if estimateNodeList[j].getDistance(minNode) < estimateNodeList[j+1].getDistance(minNode) :
@@ -354,7 +330,8 @@ class EV3():
         return estimateNodeList
         
     @classmethod
-    def loopMethod_2(cls, estimateNodeList, minNode, anchorCombDict, anchorList):
+    def loopMethod_2(cls, LS_Obj, minNode, target):
+        estimateNodeList = LS_Obj.L3M_Comb_CoordinateDict[target.nodeName]
         for i in range(len(estimateNodeList)-1) :
             for j in range(len(estimateNodeList)-i-1) :
                 if estimateNodeList[j].getDistance(minNode) < estimateNodeList[j+1].getDistance(minNode) :
@@ -365,7 +342,8 @@ class EV3():
         return estimateNodeList
         
     @classmethod
-    def loopMethod_3(cls, estimateNodeList, minNode, anchorCombDict, anchorList):
+    def loopMethod_3(cls, LS_Obj, minNode, target):
+        estimateNodeList = LS_Obj.L3M_Comb_CoordinateDict[target.nodeName]
         for i in range(len(estimateNodeList)-1) :
             for j in range(len(estimateNodeList)-i-1) :
                 if estimateNodeList[j].getDistance(minNode) < estimateNodeList[j+1].getDistance(minNode) :
@@ -376,7 +354,10 @@ class EV3():
         return estimateNodeList
     
     @classmethod
-    def loopMethod_4(cls, estimateNodeList, minNode, anchorCombDict, anchorList):
+    def loopMethod_4(cls, LS_Obj, minNode, target):
+        estimateNodeList = LS_Obj.L3M_Comb_CoordinateDict[target.nodeName]
+        anchorList = LS_Obj.anchorList
+        anchorCombDict = LS_Obj.anchorCombDict
         for i in range(len(estimateNodeList)-1) :
             for j in range(len(estimateNodeList)-i-1) :
                 if estimateNodeList[j].getDistance(minNode) < estimateNodeList[j+1].getDistance(minNode) :
@@ -399,6 +380,7 @@ class EV3():
                 max = anchorCount[key]
                 name=key
         
+        print('target name %s, delete anchor name is %s'%(target.nodeName, name))
         buffer=[]
         for node in range(len(estimateNodeList)) :
             comblist = anchorCombDict['Comb_' + str(estimateNodeList[node].ID+1)]
@@ -411,6 +393,9 @@ class EV3():
         for node in range(len(estimateNodeList)) :
             if node not in buffer :
                 newestimateNodeList.append(estimateNodeList[node])
+                
+        for anchor in LS_Obj.anchorList :
+            if anchor.nodeName == name : LS_Obj.anchorList.remove(anchor)
         
         return newestimateNodeList
     

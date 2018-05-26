@@ -11,8 +11,8 @@ Created on 2018/5/20
         distance : Euclidean_distance
         channel model : LogDistanceModel
 '''
-
-from ..Node.node import Node, node_Config
+from ..Node.node import Node
+from .Localization import Localization
 import yaml
 import numpy as np
 import math
@@ -23,16 +23,8 @@ class L3M_Config():
     node configuration class
     """
     # class variables
-    sectionName='L3MSys'
-    options={'targetNodeNum': (int,True),
-             'specifyTargetNodeValue': (list,False),
-             'specifyTarget': (bool,True),
-             'anchorNodeNum': (int,True),
-             'specifyAnchorNodeValue': (list,False),
-             'specifyAnchor': (bool,True),
-             'L3M_Sys_Dimensions': (str,True),
-             'L3M_Sys_InputType': (str,True),
-             'combValue': (int,True)}
+    sectionName='L3M'
+    options={'combValue': (int,True)}
     
     #constructor
     def __init__(self, inFileName):
@@ -64,15 +56,7 @@ class L3M_Config():
         self.setL3MSys()
         
     def setL3MSys(self):
-        L3M_Sys.targetNodeNum = self.targetNodeNum
-        L3M_Sys.specifyTargetNodeValue = self.specifyTargetNodeValue
-        L3M_Sys.specifyTarget = self.specifyTarget
-        L3M_Sys.anchorNodeNum = self.anchorNodeNum
-        L3M_Sys.specifyAnchorNodeValue = self.specifyAnchorNodeValue
-        L3M_Sys.specifyAnchor = self.specifyAnchor
-        L3M_Sys.L3M_Sys_Dimensions = self.L3M_Sys_Dimensions
-        L3M_Sys.L3M_Sys_InputType = self.L3M_Sys_InputType
-        L3M_Sys.combValue = self.combValue
+        L3M.combValue = self.combValue
         
     def get_class(self, kls):
         parts = kls.split('.')
@@ -86,130 +70,66 @@ class L3M_Config():
     def __str__(self):
         return str(yaml.dump(self.__dict__))
         
-class L3M_Sys():
+class L3M(Localization):
     """
     L3M System main class
     """
-    
-    targetNodeNum = None
-    specifyTargetNodeValue = None
-    specifyTarget = None
-    
-    anchorNodeNum = None
-    specifyAnchorNodeValue = None
-    specifyAnchor = None
-    
-    L3M_Sys_Dimensions = None
-    L3M_Sys_InputType = None
     combValue = None
     
-    @classmethod
-    def L3M_Sys_main(cls):
-        if cls.L3M_Sys_InputType == 'pseudo' :
-            return cls.L3M_Sys_pseudo()
-        elif cls.L3M_Sys_InputType == 'real' :
-            return cls.L3M_Sys_real()
-        else :
-            raise Exception('Your \'L3M_Sys_InputType\' Must be specify \'pseudo\' or \'real\'.')
-    
-    @classmethod
-    def L3M_Sys_real(cls):
-        print('real data form database')
-    
-    @classmethod
-    def L3M_Sys_pseudo(cls):
-        #create target node list
-        targetNodeList = []
-        for i in range(cls.targetNodeNum) :
-            if cls.specifyTarget is True :
-                if cls.L3M_Sys_Dimensions == '2D' :
-                    targetNodeList.append(Node(x=cls.specifyTargetNodeValue[i][0], y=cls.specifyTargetNodeValue[i][1], dimensions='2D', headerName='Target', ID=i))
-                else :
-                    targetNodeList.append(Node(x=cls.specifyTargetNodeValue[i][0], y=cls.specifyTargetNodeValue[i][1], z=cls.specifyTargetNodeValue[i][2], dimensions='3D', headerName='Target', ID=i))
-            else:
-                if cls.L3M_Sys_Dimensions == '2D' :
-                    targetNodeList.append(Node(dimensions='2D', headerName='Target', ID=i))
-                else :
-                    targetNodeList.append(Node(dimensions='3D', headerName='Target', ID=i))
-            
-        #create anchor node list
-        anchorNodeList = []
-        for i in range(cls.anchorNodeNum) :
-            if cls.specifyAnchor is True :
-                if cls.L3M_Sys_Dimensions == '2D' :
-                    anchorNodeList.append(Node(x=cls.specifyAnchorNodeValue[i][0], y=cls.specifyAnchorNodeValue[i][1], dimensions='2D', headerName='Anchor', ID=i))
-                else :
-                    anchorNodeList.append(Node(x=cls.specifyAnchorNodeValue[i][0], y=cls.specifyAnchorNodeValue[i][1], z=cls.specifyAnchorNodeValue[i][2], dimensions='3D', headerName='Anchor', ID=i))
-            else :
-                if cls.L3M_Sys_Dimensions == '2D' :
-                    anchorNodeList.append(Node(dimensions='2D', headerName='Anchor', ID=i))
-                else :
-                    anchorNodeList.append(Node(dimensions='3D', headerName='Anchor', ID=i))
-            
-        #get RSSI and pseudo noise
-        realRSSIDict = {}
-        noiseDict = {}
-        channelDistanceDict = {}
-        for target in targetNodeList :
-            realRSSIList = []
-            noiseList = []
-            channelDistanceList = []
-            for anchor in anchorNodeList :
-                (channelDistance, noise) = target.getChannelDistance(anchor)
-                (RSSI, noise1) = target.getChannelRSSI(anchor)
-                realRSSIList.append(RSSI)
-                noiseList.append(noise)
-                channelDistanceList.append(channelDistance)
-                
-            realRSSIDict[target.nodeName] = realRSSIList
-            noiseDict[target.nodeName] = noiseList
-            channelDistanceDict[target.nodeName] = channelDistanceList
+    def __init__(self, targetCoordinateList=None, anchorCoordinateList=None, RSSIDict=None):
+        super().__init__(targetCoordinateList, anchorCoordinateList, RSSIDict)
+        self.L3M_Coordinate()
+        self.L3M_Comb_Coordinate()
         
+    
+    def L3M_Coordinate(self):
         #get estimate Coordinate
-        L3M_CoordinateDict = {}
-        for target, i in zip(targetNodeList, range(cls.targetNodeNum)) :
-            realRSSIList = realRSSIDict[target.nodeName]
-            noiseList = noiseDict[target.nodeName]
-            theta = cls.L3M_Alg(anchorNodeList, realRSSIList, noiseList)
+        self.L3M_CoordinateDict = {}
+        for target in self.targetList :
+            RSSIList = self.RSSIDict[target.nodeName]
+            noiseList = self.noiseDict.get(target.nodeName, None)
+            theta = self.__L3M_Alg(self.anchorList, RSSIList, noiseList)
             coordinate = np.transpose(theta).tolist()[0][:-1]
             
-            if cls.L3M_Sys_Dimensions == '2D' :
-                L3M_CoordinateDict[target.nodeName] = Node(x=coordinate[0], y=coordinate[1], dimensions='2D', headerName='L3M', ID=i)
+            if self.Localization_Dimensions == '2D' :
+                self.L3M_CoordinateDict[target.nodeName] = Node(x=coordinate[0], y=coordinate[1], dimensions='2D', headerName='L3M', ID=0)
             else :
-                L3M_CoordinateDict[target.nodeName] = Node(x=coordinate[0], y=coordinate[1], z=coordinate[2], dimensions='3D', headerName='L3M', ID=i)
-        
+                self.L3M_CoordinateDict[target.nodeName] = Node(x=coordinate[0], y=coordinate[1], z=coordinate[2], dimensions='3D', headerName='L3M', ID=0)
+    
+    def L3M_Comb_Coordinate(self):
         #get anchor comb List
-        anchorCombDict = {}
-        anchorCombList = list(combinations(anchorNodeList, cls.combValue))
+        self.anchorCombDict = {}
+        anchorCombList = list(combinations(self.anchorList, self.combValue))
         
-        for anchorComb in range(len(anchorCombList)) :
-            anchorCombDict['Comb_' + str(anchorComb+1)] = anchorCombList[anchorComb]
+        for Comb in range(len(anchorCombList)) :
+            self.anchorCombDict['Comb_' + str(Comb+1)] = anchorCombList[Comb]
         
         #get estimate Coordinate(comb)
-        L3M_Comb_CoordinateDict = {}
-        for index in range(len(targetNodeList)) :
-            target = targetNodeList[index]
-            noiseList = noiseDict[target.nodeName]
-            realRSSIList = realRSSIDict[target.nodeName]
-            coordinateList=[]
-            for key, i in zip(anchorCombDict, range(len(anchorCombDict))):
-                anchorCombList = anchorCombDict[key]
-                noise = [noiseList[anchorCombList[i].ID] for i in range(len(anchorCombList))]
-                RSSI = [realRSSIList[anchorCombList[i].ID] for i in range(len(anchorCombList))]
-                theta = cls.L3M_Alg(anchorCombList, RSSI, noise)
+        self.L3M_Comb_CoordinateDict = {}
+        for target in self.targetList :
+            RSSIList = self.RSSIDict[target.nodeName]
+            noiseList = self.noiseDict.get(target.nodeName, None)
+            coordinateList = []
+            for (Comb, index) in zip(self.anchorCombDict, range(len(self.anchorCombDict))) :
+                anchorCombList = self.anchorCombDict[Comb]
+                RSSI = [RSSIList[anchorCombList[i].ID] for i in range(len(anchorCombList))]
+                if noiseList is not None : 
+                    noise = [noiseList[anchorCombList[i].ID] for i in range(len(anchorCombList))]
+                else :
+                    noise = None
+                
+                theta = self.__L3M_Alg(anchorCombList, RSSI, noise)
                 coordinate = np.transpose(theta).tolist()[0][:-1]
                 
-                if cls.L3M_Sys_Dimensions == '2D' :
-                    coordinateList.append(Node(x=coordinate[0], y=coordinate[1], dimensions='2D', headerName=target.nodeName + '_L3M_Comb', ID=i))
+                if self.Localization_Dimensions == '2D' :
+                    coordinateList.append(Node(x=coordinate[0], y=coordinate[1], dimensions='2D', headerName=target.nodeName + '_L3M_Comb', ID=index))
                 else :
-                    coordinateList.append(Node(x=coordinate[0], y=coordinate[1], z=coordinate[2], dimensions='3D', headerName=target.nodeName + '_L3M_Comb', ID=i))
-                
-            L3M_Comb_CoordinateDict[target.nodeName] = coordinateList
-            
-        return (anchorNodeList, targetNodeList, realRSSIDict, channelDistanceDict, noiseDict, L3M_CoordinateDict, anchorCombDict, L3M_Comb_CoordinateDict)
+                    coordinateList.append(Node(x=coordinate[0], y=coordinate[1], z=coordinate[2], dimensions='3D', headerName=target.nodeName + '_L3M_Comb', ID=index))
+                    
+            self.L3M_Comb_CoordinateDict[target.nodeName] = coordinateList
         
     @classmethod
-    def L3M_Alg(cls, anchorNodeList, realRSSIList, noiseList=None):
+    def __L3M_Alg(cls, anchorList, RSSIList, noiseList=None):
         #
         #            |-2*x1 -2*y1 1 |                | 10**((2/n)*(Z0 - Z1)) - R1 |        | x |
         #matrix A =  |-2*x2 -2*y2 1 |  matrix b =    | 10**((2/n)*(Z0 - Z2)) - R2 | theta =| y |
@@ -234,12 +154,10 @@ class L3M_Sys():
         matrix_A=[]
         matrix_b=[]
         
+        if noiseList is None : noiseList = [0 for i in range(len(RSSIList))]
+        
         # create matrix A and matrix b
-        for anchorIndex in range(len(anchorNodeList)) :
-            anchor = anchorNodeList[anchorIndex]
-            noise = noiseList[anchorIndex]
-            RSSI = realRSSIList[anchorIndex]
-            
+        for (anchor, RSSI, noise) in zip(anchorList, RSSIList, noiseList) :
             #create matrix A
             A_col=[-2*anchor.coordinate[i] for i in range(len(anchor))]
             A_col.append(1)
@@ -258,42 +176,34 @@ class L3M_Sys():
         
         return theta
         
-    @classmethod
-    def printTargetNode(cls, targetNodeList):
-        for target in targetNodeList :
-            print(target)
+    def getL3M_Comb_XList(self, target):
+        return [self.L3M_Comb_CoordinateDict[target.nodeName][i].x for i in range(len(self.L3M_Comb_CoordinateDict[target.nodeName]))]
+    
+    def getL3M_Comb_YList(self, target):
+        return [self.L3M_Comb_CoordinateDict[target.nodeName][i].y for i in range(len(self.L3M_Comb_CoordinateDict[target.nodeName]))]
+    
+    def getL3M_Comb_ZList(self, target):
+        return [self.L3M_Comb_CoordinateDict[target.nodeName][i].z for i in range(len(self.L3M_Comb_CoordinateDict[target.nodeName]))]
+    
+    def printL3M_Coordinate(self):
+        for target in self.L3M_CoordinateDict :
+            print('Target Node \"%s\" :\n estimate coordinate'%(target) + str(self.L3M_CoordinateDict[target]))
             
-    @classmethod
-    def printAnchorNode(cls, anchorNodeList):
-        for anchor in anchorNodeList :
-            print(anchor)
-    
-    @classmethod
-    def printChannelDistance(cls, channelDistanceDict, noiseDict):
-        for key in channelDistanceDict :
-            print("Target Node \"%s\" :\npseudo distance between ---"%(key))
-            for index in range(len(channelDistanceDict[key])) :
-                print("\t --Anchor %d : %4.4f m \tnoise = %8.4f dBm"%(index+1, channelDistanceDict[key][index], noiseDict[key][index]) )
-    
-    @classmethod
-    def printRealRSSI(cls, realRSSIDict, noiseDict):
-        for key in realRSSIDict :
-            print("Target Node \"%s\" :\npseudo RSSI between ---"%(key))
-            for index in range(len(realRSSIDict[key])) :
-                print("\t --Anchor %d : %8.4f dBm \tnoise = %8.4f dBm"%(index+1, realRSSIDict[key][index], noiseDict[key][index]) )
+    def printL3M_Comb_Coordinate(self):
+        for target in self.L3M_Comb_CoordinateDict :
+            print("Target Node \"%s\" :\n estimate coordinate ---"%(target))
+            for node, anchor in zip(self.L3M_Comb_CoordinateDict[target], self.anchorCombDict) :
+                anchorCombList = [self.anchorCombDict[anchor][i].nodeName for i in range(len(self.anchorCombDict[anchor]))]
+                print('\t --' + str(node) + '\t comb Anchor : ' + str(anchorCombList))
+                
+    def printLocalizationSystemInfo(self):
+        self.printTargetNode()
+        self.printAnchorNode()
+        self.printRSSI()
+        self.printChannelDistance()
+        self.printL3M_Coordinate()
+        self.printL3M_Comb_Coordinate()
         
-    @classmethod
-    def printL3M_Coordinate(cls, L3M_CoordinateDict):
-        for key in L3M_CoordinateDict :
-            print('Target Node \"%s\" :\nestimate coordinate'%(key) + str(L3M_CoordinateDict[key]))
-            
-    @classmethod
-    def printL3M_Comb_Coordinate(cls, L3M_Comb_CoordinateDict, anchorCombDict):
-        for key1 in L3M_Comb_CoordinateDict :
-            print("Target Node \"%s\" :\nestimate coordinate ---"%(key1))
-            for index, key2 in zip(range(len(L3M_Comb_CoordinateDict[key1])), anchorCombDict) :
-                anchorCombList = [anchorCombDict[key2][i].nodeName for i in range(len(anchorCombDict[key2]))]
-                print('\t --' + str(L3M_Comb_CoordinateDict[key1][index]) + '\t combAnchor : ' + str(anchorCombList))
     
         
         

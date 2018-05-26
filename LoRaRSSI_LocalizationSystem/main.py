@@ -1,22 +1,22 @@
 '''
-Created on 2018/5/21
+Created on 2018/5/26
 
 @author: Lulumi5129
-
- Flow : L3M -> EV
 '''
 
 import optparse
 import sys
 import multiprocessing
-from LocalizationSystem.LocalizationAlg.L3M_System import L3M_Sys, L3M_Config
+from LocalizationSystem.LocalizationAlg.L3M_System import L3M, L3M_Config
 from LocalizationSystem.Node.node import node_Config
+from LocalizationSystem.LocalizationAlg.Localization import Localization_Config
 from LocalizationSystem.BackEndAlg.EvolutionaryComputation.EV import EV3, EV3_Config
 
 def main(argv=None):
-    nodeConfigFilePath = './config/main/node_config.cfg'
-    L3MSysConfigFilePath = './config/main/L3M_System_config_2D.cfg'
-    EVConfigFilePath = './config/main/EV_config.cfg'
+    nodeConfigFilePath = './config/main/node.cfg'
+    L3MConfigFilePath = './config/main/L3M.cfg'
+    EV3ConfigFilePath = './config/main/EV3.cfg'
+    LocalizationConfigFilePath = './config/main/Localization_3D.cfg'
     if argv is None:
         argv = sys.argv
         
@@ -41,35 +41,33 @@ def main(argv=None):
         print(node_cfg)
         
         #Get L3M config params
-        L3M_cfg = L3M_Config(L3MSysConfigFilePath)
+        Localization_cfg = Localization_Config(LocalizationConfigFilePath)
+        
+        #print config params
+        print(Localization_cfg)
+        
+        #Get L3M config params
+        L3M_cfg = L3M_Config(L3MConfigFilePath)
         
         #print config params
         print(L3M_cfg)
         
-        #run L3M
-        (anchorNodeList, targetNodeList, realRSSIDict, channelDistanceDict, noiseDict, L3M_CoordinateDict, anchorCombDict, L3M_Comb_CoordinateDict) = L3M_Sys.L3M_Sys_main()
-        
-        #print L3M System each node and data
-        L3M_Sys.printTargetNode(targetNodeList)
-        L3M_Sys.printAnchorNode(anchorNodeList)
-        L3M_Sys.printRealRSSI(realRSSIDict, noiseDict)
-        L3M_Sys.printL3M_Coordinate(L3M_CoordinateDict)
-        L3M_Sys.printL3M_Comb_Coordinate(L3M_Comb_CoordinateDict, anchorCombDict)
-        L3M_Sys.printChannelDistance(channelDistanceDict, noiseDict)
-        
         #Get EV3 config params
-        EV3_cfg=EV3_Config(EVConfigFilePath)
+        EV3_cfg=EV3_Config(EV3ConfigFilePath)
         
         #print config params
         print(EV3_cfg)
         
+        #run L3M
+        LS_Obj = L3M()
+        
+        #print L3M System each node and data
+        LS_Obj.printLocalizationSystemInfo()
+        
         #run EV3
-        for target in targetNodeList :
-            L3M_Node = L3M_CoordinateDict[target.nodeName]
-            L3M_Comb = L3M_Comb_CoordinateDict[target.nodeName]
-            channelDistance = channelDistanceDict[target.nodeName]
-            dataList = [anchorNodeList, target, L3M_Node, L3M_Comb, anchorCombDict, channelDistance]
-            p = multiprocessing.Process(target=EV3.ev3_multiprocess, args=(EVConfigFilePath, L3MSysConfigFilePath, nodeConfigFilePath, dataList,))
+        for target in LS_Obj.targetList :
+            settingPath = [EV3ConfigFilePath, L3MConfigFilePath, LocalizationConfigFilePath, nodeConfigFilePath]
+            p = multiprocessing.Process(target=EV3.ev3_multiprocess, args=(settingPath, LS_Obj, target,))
             p.start()
             
         p.join()
