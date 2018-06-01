@@ -88,7 +88,7 @@ class L3M(Localization):
         for target in self.targetList :
             RSSIList = self.RSSIDict[target.nodeName]
             noiseList = self.noiseDict.get(target.nodeName, None)
-            theta = self.__L3M_Alg(self.anchorList, RSSIList, noiseList)
+            theta = self.L3M_Alg(self.anchorList, RSSIList, noiseList)
             coordinate = np.transpose(theta).tolist()[0][:-1]
             
             if self.Localization_Dimensions == '2D' :
@@ -118,7 +118,7 @@ class L3M(Localization):
                 else :
                     noise = None
                 
-                theta = self.__L3M_Alg(anchorCombList, RSSI, noise)
+                theta = self.L3M_Alg(anchorCombList, RSSI, noise)
                 coordinate = np.transpose(theta).tolist()[0][:-1]
                 
                 if self.Localization_Dimensions == '2D' :
@@ -129,7 +129,7 @@ class L3M(Localization):
             self.L3M_Comb_CoordinateDict[target.nodeName] = coordinateList
         
     @classmethod
-    def __L3M_Alg(cls, anchorList, RSSIList, noiseList=None):
+    def L3M_Alg(cls, anchorList, RSSIList, noiseList=None):
         #
         #            |-2*x1 -2*y1 1 |                | 10**((2/n)*(Z0 - Z1)) - R1 |        | x |
         #matrix A =  |-2*x2 -2*y2 1 |  matrix b =    | 10**((2/n)*(Z0 - Z2)) - R2 | theta =| y |
@@ -144,8 +144,6 @@ class L3M(Localization):
         #   matrix A(pseudo inverse)= ((A(transpose)*A)**(-1)) * A(transpose)
         #
         #
-        from ..Node.node import LogDistanceModel
-        
         def Ri(anchorNode):
             addsum = 0
             for i in range(len(anchorNode)) : addsum += math.pow(anchorNode.coordinate[i], 2)
@@ -163,8 +161,7 @@ class L3M(Localization):
             A_col.append(1)
                 
             #create matrix b
-            Zi = LogDistanceModel.transmitPower + RSSI
-            b_col=(10**((2/(10*LogDistanceModel.n))*(LogDistanceModel.zeroPoint - Zi - noise))) - Ri(anchor)
+            b_col=anchor.getChannelDistance(RSSI, noise)**2 - Ri(anchor)
                 
             matrix_A.append(A_col)
             matrix_b.append([b_col])

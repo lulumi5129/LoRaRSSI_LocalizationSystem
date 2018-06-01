@@ -122,7 +122,6 @@ class Population:
         # overwrite old pop with newPop    
         self.population=newPop        
 
-
     def combinePops(self,otherPop):
         self.population.extend(otherPop.population)
 

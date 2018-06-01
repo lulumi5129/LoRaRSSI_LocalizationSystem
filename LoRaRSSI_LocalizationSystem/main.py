@@ -16,7 +16,7 @@ def main(argv=None):
     nodeConfigFilePath = './config/main/node.cfg'
     L3MConfigFilePath = './config/main/L3M.cfg'
     EV3ConfigFilePath = './config/main/EV3.cfg'
-    LocalizationConfigFilePath = './config/main/Localization_3D.cfg'
+    LocalizationConfigFilePath = './config/main/Localization_2D.cfg'
     if argv is None:
         argv = sys.argv
         

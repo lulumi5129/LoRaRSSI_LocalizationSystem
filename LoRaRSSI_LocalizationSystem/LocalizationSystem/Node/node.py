@@ -137,7 +137,8 @@ class node_Config:
         sectionName='channelNoise'
         options={'noiseRandomSeed': (int,True),
                  'noiseMethod': (str,True),
-                 'noiseLimit': (list,True)}
+                 'noiseLimit': (list,True),
+                 'gaussNoiseValue': (list,True)}
         
         eccfg=self.ymlcfg.get(sectionName,None)
         if eccfg is None: raise Exception('Missing {} section in cfg file'.format(sectionName))
@@ -167,6 +168,7 @@ class node_Config:
         path = m.split('\'')[1:2][0]
         channelNoise.noiseMethod = getattr(self.get_class(path + '.channelNoise'), self.noiseMethod)
         channelNoise.noiseLimit = self.noiseLimit
+        channelNoise.gaussNoiseValue = self.gaussNoiseValue
      
     def get_class(self, kls):
         parts = kls.split('.')
@@ -256,8 +258,8 @@ class Node():
     def getChannelRSSI(self, other):
         if self and other is not None : return node_Method.getChannelRSSI(self, other)
         
-    def getChannelDistance(self, other, RSSI, noise=None):
-        if self and other is not None : return node_Method.getChannelDistance(self, other, RSSI, noise)
+    def getChannelDistance(self, RSSI, noise=None):
+        if RSSI is not None : return node_Method.getChannelDistance(RSSI, noise)
     
 class node_Method():
     
@@ -303,8 +305,8 @@ class node_Method():
         return cls.channelModel.getChannelRSSI(selfNode, otherNode)
         
     @classmethod
-    def getChannelDistance(cls, selfNode, otherNode, RSSI, noise=None):
-        return cls.channelModel.getChannelDistance(selfNode, otherNode, RSSI, noise)
+    def getChannelDistance(cls, RSSI, noise=None):
+        return cls.channelModel.getChannelDistance(RSSI, noise)
         
 class LogDistanceModel():
     
@@ -326,7 +328,7 @@ class LogDistanceModel():
         return realRSSI, noise
     
     @classmethod
-    def getChannelDistance(cls, selfNode, otherNode, RSSI, noise=None):
+    def getChannelDistance(cls, RSSI, noise=None):
         # Calculation distance
         # d = 10**((1/10*n)*(P0 - Pr - Pt - noise))
         if noise is None : noise = 0
@@ -339,10 +341,15 @@ class channelNoise():
     noiseRandom=None
     noiseMethod=None
     noiseLimit=None
+    gaussNoiseValue=None
     
     @classmethod
     def normalNoise(cls, selfNode=None, otherNode=None):
         return cls.noiseRandom.uniform(cls.noiseLimit[0], cls.noiseLimit[1])
+    
+    @classmethod
+    def gaussNoise(cls, selfNode=None, otherNode=None):
+        return cls.noiseRandom.gauss(cls.gaussNoiseValue[0], cls.gaussNoiseValue[1])
 
 
 

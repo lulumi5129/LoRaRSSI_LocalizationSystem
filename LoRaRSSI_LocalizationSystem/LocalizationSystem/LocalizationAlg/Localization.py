@@ -208,7 +208,7 @@ class Localization():
             noiseList = self.noiseDict.get(target.nodeName, None)
             distanceList = []
             for (anchor, RSSI, noise) in zip(self.anchorList, RSSIList, noiseList) :
-                distance = target.getChannelDistance(anchor, RSSI, noise)
+                distance = target.getChannelDistance(RSSI, noise)
                 distanceList.append(distance)
             self.distanceDict[target.nodeName] = distanceList
     

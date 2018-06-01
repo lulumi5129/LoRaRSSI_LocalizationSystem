@@ -28,7 +28,10 @@ class EV3_Config:
              'fitnessMethod': (str,True),
              'loopMethod': (str,True),
              'nodelimit': (list,True),
-             'loopCount': (int,True)}
+             'loopCount': (int,True),
+             'printData': (bool,True),
+             'plot': (bool,True),
+             'PlotLineCircle': (bool,True)}
      
     #constructor
     def __init__(self, inFileName):
@@ -65,6 +68,9 @@ class EV3_Config:
         EV3.loopCount = self.loopCount
         EV3.randomSeed = self.randomSeed
         EV3.nodelimit = self.nodelimit
+        EV3.printData=self.printData
+        EV3.plot=self.plot
+        EV3.PlotLineCircle=self.PlotLineCircle
         
         m = str(sys.modules[__name__])
         path = m.split('\'')[1:2][0]
@@ -96,6 +102,9 @@ class EV3():
     loopMethod=None
     dimensions=None
     nodelimit=None
+    printData=None
+    plot=None
+    PlotLineCircle=None
     
     #EV3 multi process run main
     @classmethod
@@ -108,7 +117,7 @@ class EV3():
         Localization_Config(settingPath[2])
         node_Config(settingPath[3])
         
-        cls.ev3(LS_Obj, target)
+        return cls.ev3(LS_Obj, target)
     
     #EV3 main
     @classmethod
@@ -144,18 +153,23 @@ class EV3():
             population=Population(cls.populationSize)
         
             #print initial pop stats    
-            #cls.printStats(population,0, target)
+            if cls.printData is True : 
+                cls.printStats(population,0, target)
+                
             minNode = cls.getminNode(population)
             if loop == 0 :
-                fig = plt.figure(figsize=(8,6), dpi=120)
-                if cls.dimensions == '2D' :
-                    ax = fig.add_subplot(111)
-                else :
-                    ax = fig.add_subplot(111, projection='3d')
+                if cls.plot is True :
+                    fig = plt.figure(figsize=(8,6), dpi=120)
+                    if cls.dimensions == '2D' :
+                        ax = fig.add_subplot(111)
+                    else :
+                        ax = fig.add_subplot(111, projection='3d')
                 
-            fig.suptitle(target.nodeName + " Localization System Loop" + str(loop+1))
+                
+                    fig.suptitle(target.nodeName + " Localization System Loop" + str(loop+1))
     
-            cls.plotLocalizationSystem(fig, ax, population, 0, 0, LS_Obj, target, minNode)
+            if cls.plot is True :
+                cls.plotLocalizationSystem(fig, ax, population, 0, 0, LS_Obj, target, minNode)
         
             #evolution main loop
             for i in range(cls.generationCount):
@@ -179,14 +193,18 @@ class EV3():
                 population.truncateSelect(cls.populationSize)
         
                 #print population stats    
-                #cls.printStats(population,i+1, target)
+                if cls.printData :
+                    cls.printStats(population,i+1, target)
                 minNode = cls.getminNode(population)
-                cls.plotLocalizationSystem(fig, ax, population, loop, i+1, LS_Obj, target, minNode)
+                if cls.plot is True :
+                    cls.plotLocalizationSystem(fig, ax, population, loop, i+1, LS_Obj, target, minNode)
             
-            LS_Obj.L3M_Comb_CoordinateDict[target.nodeName] = cls.loopMethod(LS_Obj, minNode, target)
-            del population
+            if loop != cls.loopCount-1 :
+                LS_Obj.L3M_Comb_CoordinateDict[target.nodeName] = cls.loopMethod(LS_Obj, minNode, target)
+                del population
         
-        plt.show()
+        if cls.plot is True : plt.show()
+        return (target, minNode)
         
     #Plot some useful coordinate to screen
     @classmethod
@@ -206,8 +224,9 @@ class EV3():
     
         if L3M_Obj.Localization_Dimensions == '2D' :
             #plot anchor Circle
-            for anchor, distance in zip(L3M_Obj.anchorList, L3M_Obj.distanceDict[target.nodeName]) :
-                ax.add_artist(plt.Circle(anchor.coordinate, distance, color=next(cycol), fill=False))
+            if cls.PlotLineCircle is True :
+                for anchor, distance in zip(L3M_Obj.anchorList, L3M_Obj.distanceDict[target.nodeName]) :
+                    ax.add_artist(plt.Circle(anchor.coordinate, distance, color=next(cycol), fill=False))
             
             # plot
             ax.scatter(x_anchor, y_anchor, c='b', s=100, marker='^', label='Anchor')
@@ -223,15 +242,16 @@ class EV3():
         
         elif len(target.coordinate) == 3 :
             #plot anchor Circle
-            for anchor, distance in zip(L3M_Obj.anchorList, L3M_Obj.distanceDict[target.nodeName]) :
-                center = anchor.coordinate
-                radius = distance
-                u = np.linspace(0, 2 * np.pi, 100)
-                v = np.linspace(0, np.pi, 100)
-                x = radius * np.outer(np.cos(u), np.sin(v)) + center[0]
-                y = radius * np.outer(np.sin(u), np.sin(v)) + center[1]
-                z = radius * np.outer(np.ones(np.size(u)), np.cos(v)) + center[2]
-                ax.plot_wireframe(x, y, z, color=next(cycol), rstride=10, cstride=10)
+            if cls.PlotLineCircle is True :
+                for anchor, distance in zip(L3M_Obj.anchorList, L3M_Obj.distanceDict[target.nodeName]) :
+                    center = anchor.coordinate
+                    radius = distance
+                    u = np.linspace(0, 2 * np.pi, 100)
+                    v = np.linspace(0, np.pi, 100)
+                    x = radius * np.outer(np.cos(u), np.sin(v)) + center[0]
+                    y = radius * np.outer(np.sin(u), np.sin(v)) + center[1]
+                    z = radius * np.outer(np.ones(np.size(u)), np.cos(v)) + center[2]
+                    ax.plot_wireframe(x, y, z, color=next(cycol), rstride=10, cstride=10)
             
             z_EV3 = pop.getPopulationZList()
             z_L3M_Comb = L3M_Obj.getL3M_Comb_ZList(target)
@@ -395,7 +415,9 @@ class EV3():
                 newestimateNodeList.append(estimateNodeList[node])
                 
         for anchor in LS_Obj.anchorList :
-            if anchor.nodeName == name : LS_Obj.anchorList.remove(anchor)
+            if anchor.nodeName == name : 
+                del LS_Obj.distanceDict[target.nodeName][LS_Obj.anchorList.index(anchor)]
+                LS_Obj.anchorList.remove(anchor)
         
         return newestimateNodeList
     
